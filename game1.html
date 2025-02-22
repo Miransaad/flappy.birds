@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird - Play</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Flappy Bird</h1>
+    </header>
+    <main>
+        <div id="scoreDisplay">Score: 0 | High Score: <span id="highScore">0</span></div>
+        <canvas id="gameCanvas" width="320" height="480"></canvas>
+        <div id="controls">
+            <button id="flap">Flap</button>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const width = canvas.width;
+        const height = canvas.height;
+        const birdSize = 20;
+        const pipeWidth = 50;
+        const pipeGap = 120;
+        const gravity = 0.3;
+        const flapStrength = -6;
+        const pipeSpeed = 2;
+
+        let birdY = height / 2;
+        let birdVelocity = 0;
+        let pipes = [];
+        let score = 0;
+        let highScore = localStorage.getItem("flappyHighScore") || 0;
+        let gameRunning = false;
+        let gameOver = false;
+
+        const scoreDisplay = document.getElementById("scoreDisplay");
+        const highScoreDisplay = document.getElementById("highScore");
+        highScoreDisplay.textContent = highScore;
+
+        function initGame() {
+            birdY = height / 2;
+            birdVelocity = 0;
+            pipes = [];
+            score = 0;
+            gameRunning = true;
+            gameOver = false;
+            spawnPipe();
+            updateScoreDisplay();
+            gameLoop();
+        }
+
+        function spawnPipe() {
+            const pipeHeight = Math.random() * (height - pipeGap - 100) + 50;
+            pipes.push({ x: width, top: pipeHeight, passed: false });
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === " " || event.key === "Enter") {
+                if (gameRunning && !gameOver) {
+                    birdVelocity = flapStrength;
+                } else if (gameOver) {
+                    initGame();
+                }
+            }
+        });
+
+        document.getElementById("flap").addEventListener("click", () => {
+            if (gameRunning && !gameOver) {
+                birdVelocity = flapStrength;
+            }
+        });
+
+        canvas.addEventListener("click", (event) => {
+            if (!gameRunning && gameOver) {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+
+                // "Try Again" button area
+                if (x >= 100 && x <= 220 && y >= 220 && y <= 260) {
+                    initGame();
+                }
+                // "Play Again" button area
+                if (x >= 100 && x <= 220 && y >= 270 && y <= 310) {
+                    initGame();
+                }
+            } else if (gameRunning && !gameOver) {
+                birdVelocity = flapStrength;
+            }
+        });
+
+        function gameLoop() {
+            if (!gameRunning) {
+                showGameOver();
+                return;
+            }
+
+            // Update bird
+            birdVelocity += gravity;
+            birdY += birdVelocity;
+            if (birdY < 0 || birdY + birdSize > height) {
+                gameRunning = false;
+                gameOver = true;
+                updateHighScore();
+                return;
+            }
+
+            // Update pipes
+            pipes.forEach((pipe, index) => {
+                pipe.x -= pipeSpeed;
+                if (pipe.x + pipeWidth < 0) {
+                    pipes.splice(index, 1);
+                    spawnPipe();
+                }
+                // Collision detection
+                if (
+                    (width / 4 > pipe.x && width / 4 < pipe.x + pipeWidth &&
+                     (birdY < pipe.top || birdY + birdSize > pipe.top + pipeGap)) ||
+                    (birdY < 0 || birdY + birdSize > height)
+                ) {
+                    gameRunning = false;
+                    gameOver = true;
+                    updateHighScore();
+                    return;
+                }
+                // Score
+                if (!pipe.passed && pipe.x + pipeWidth < width / 4) {
+                    pipe.passed = true;
+                    score++;
+                    updateScoreDisplay();
+                }
+            });
+
+            // Draw everything
+            ctx.fillStyle = "#87CEEB"; // Sky blue background
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw bird
+            ctx.fillStyle = "#FFFF00"; // Yellow bird
+            ctx.fillRect(width / 4, birdY, birdSize, birdSize);
+
+            // Draw pipes
+            ctx.fillStyle = "#00FF00"; // Green pipes
+            pipes.forEach(pipe => {
+                ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
+                ctx.fillRect(pipe.x, pipe.top + pipeGap, pipeWidth, height - pipe.top - pipeGap);
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateScoreDisplay() {
+            scoreDisplay.textContent = `Score: ${score} | High Score: ${highScore}`;
+        }
+
+        function updateHighScore() {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("flappyHighScore", highScore);
+                highScoreDisplay.textContent = highScore;
+            }
+        }
+
+        function showGameOver() {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "20px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("Game Over", width / 2, height / 2 - 20);
+
+            // Draw "Try Again" button
+            ctx.fillStyle = "#808080";
+            ctx.fillRect(100, 220, 120, 40);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "16px Arial";
+            ctx.fillText("Try Again", width / 2, 245);
+
+            // Draw "Play Again" button
+            ctx.fillStyle = "#808080";
+            ctx.fillRect(100, 270, 120, 40);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillText("Play Again", width / 2, 295);
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
